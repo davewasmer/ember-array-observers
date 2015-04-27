@@ -1,5 +1,5 @@
 {
-  "name": "ember-nested-array-observer",
+  "name": "ember-array-observers",
   "version": "0.0.0",
   "description": "The default blueprint for ember-cli addons.",
   "directories": {
@@ -11,11 +11,11 @@
     "build": "ember build",
     "test": "ember try:testall"
   },
-  "repository": "",
+  "repository": "davewasmer/ember-array-observers",
   "engines": {
     "node": ">= 0.10.0"
   },
-  "author": "",
+  "author": "Dave Wasmer",
   "license": "MIT",
   "devDependencies": {
     "broccoli-asset-rev": "^2.0.2",

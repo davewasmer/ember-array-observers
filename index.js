@@ -2,5 +2,5 @@
 'use strict';
 
 module.exports = {
-  name: 'ember-nested-array-observer'
+  name: 'ember-array-observers'
 };
