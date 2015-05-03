@@ -1,5 +1,5 @@
 {
-  "name": "ember-array-observers",
+  "name": "ember-array-macros",
   "version": "0.0.0",
   "description": "The default blueprint for ember-cli addons.",
   "directories": {

@@ -2,5 +2,5 @@
 'use strict';
 
 module.exports = {
-  name: 'ember-array-observers'
+  name: 'ember-array-macros'
 };
