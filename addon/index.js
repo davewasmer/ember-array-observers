@@ -43,13 +43,20 @@ export function nestedArrayObserver(dependentArrayKey, observerFn) {
   return arrayMemberObserver(dependentArrayKey, {
     added(nestedArray) {
       assert(`The outer array contains a non-array value (${nestedArray}). nestedArrayObserver must be used on an array of arrays.`, Ember.isArray(nestedArray));
+      // Create the cached observer function
       const cached = {
         parent: this,
         target: nestedArray,
         observer: observerFn.bind(this, nestedArray)
       };
       observerCache.pushObject(cached);
+      // Add the observer
       nestedArray.addObserver('[]', this, cached.observer);
+      // Immediately invoke the observer since the nested array "changed" - it's
+      // actually a new array, but the nestedArrayObserver macro allows the user
+      // to ignore that fact and treat the nested arrays as pointers rather than
+      // references, essentially
+      cached.observer();
     },
     removed(nestedArray) {
       const cached = observerCache.find((item) => {
@@ -74,24 +81,52 @@ export function nestedArrayObserver(dependentArrayKey, observerFn) {
  */
 export function arrayMemberObserver(dependentArrayKey, observers) {
   return on('init', function() {
-
     assert(`arrayMemberObserver only works on arrays. The dependent key you provided ('${dependentArrayKey}') is not an array.`, Ember.isArray(this.get(dependentArrayKey)));
 
-    this.get(dependentArrayKey).forEach((member) => {
-      observers.added.call(this, member);
-    });
-    this.get(dependentArrayKey).addArrayObserver({
-      arrayWillChange: (array, start, removedCount) => {
-        if (removedCount > 0) {
-          array.slice(start, start + removedCount).forEach(observers.removed.bind(this));
+    // Cache the reference to the previous array so we can teardown listerners
+    let previousArray;
+
+    let observeDependentArray = () => {
+      // The dependent key could have been nulled out, so ignore non-array
+      // values
+      if (Array.isArray(this.get(dependentArrayKey))) {
+        // Teardown the old listeners
+        if (previousArray) {
+          previousArray.removeArrayObserver();
         }
-      },
-      arrayDidChange: (array, start, removedCount, addedCount) => {
-        if (addedCount > 0) {
-          array.slice(start, start + addedCount).forEach(observers.added.bind(this));
-        }
+        previousArray = this.get(dependentArrayKey);
+        // The dependent array is a new array, so immediately invoke the added
+        // observer for every item in the array
+        this.get(dependentArrayKey).forEach((member) => {
+          observers.added.call(this, member);
+        });
+        // Add an ArrayObserver so future changes will invoke the user's observers
+        this.get(dependentArrayKey).addArrayObserver({
+          arrayWillChange: (array, start, removedCount) => {
+            if (removedCount > 0) {
+              array.slice(start, start + removedCount).forEach((item, i) => {
+                observers.removed.call(this, item, i + start);
+              });
+            }
+          },
+          arrayDidChange: (array, start, removedCount, addedCount) => {
+            if (addedCount > 0) {
+              array.slice(start, start + addedCount).forEach((item, i) => {
+                observers.added.call(this, item, i + start);
+              });
+            }
+          }
+        });
       }
-    });
+    };
+
+    // Setup the appropriate observers on the initial value of this array
+    observeDependentArray();
+
+    // Watch the dependent key for changes - it could be assigned a totally
+    // different array.
+    this.addObserver(dependentArrayKey, observeDependentArray)
+
   });
 }
 
