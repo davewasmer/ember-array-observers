@@ -62,8 +62,10 @@ export function nestedArrayObserver(dependentArrayKey, observerFn) {
       const cached = observerCache.find((item) => {
         return item.target === nestedArray && item.parent === this;
       });
-      nestedArray.removeObserver('[]', this, cached.observer);
-      observerCache.removeObject(cached);
+      if (cached) {
+        nestedArray.removeObserver('[]', this, cached.observer);
+        observerCache.removeObject(cached);
+      }
     }
   });
 }
@@ -81,7 +83,7 @@ export function nestedArrayObserver(dependentArrayKey, observerFn) {
  */
 export function arrayMemberObserver(dependentArrayKey, observers) {
   return on('init', function() {
-    assert(`arrayMemberObserver only works on arrays. The dependent key you provided ('${dependentArrayKey}') is not an array.`, Ember.isArray(this.get(dependentArrayKey)));
+    assert(`arrayMemberObserver only works on arrays. The dependent key you provided ('${dependentArrayKey}') is not an array (${this.get(dependentArrayKey)}).`, Ember.isArray(this.get(dependentArrayKey)));
 
     // Cache the reference to the previous array so we can teardown listerners
     let previousArray;
@@ -93,6 +95,9 @@ export function arrayMemberObserver(dependentArrayKey, observers) {
         // Teardown the old listeners
         if (previousArray) {
           previousArray.removeArrayObserver();
+          if (observers.removed) {
+            previousArray.map(observers.removed.bind(this));
+          }
         }
         previousArray = this.get(dependentArrayKey);
         // The dependent array is a new array, so immediately invoke the added
@@ -103,14 +108,14 @@ export function arrayMemberObserver(dependentArrayKey, observers) {
         // Add an ArrayObserver so future changes will invoke the user's observers
         this.get(dependentArrayKey).addArrayObserver({
           arrayWillChange: (array, start, removedCount) => {
-            if (removedCount > 0) {
+            if (removedCount > 0 && observers.removed) {
               array.slice(start, start + removedCount).forEach((item, i) => {
                 observers.removed.call(this, item, i + start);
               });
             }
           },
           arrayDidChange: (array, start, removedCount, addedCount) => {
-            if (addedCount > 0) {
+            if (addedCount > 0 && observers.added) {
               array.slice(start, start + addedCount).forEach((item, i) => {
                 observers.added.call(this, item, i + start);
               });
